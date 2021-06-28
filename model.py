@@ -23,7 +23,7 @@ import math
 import random
 import sys
 import os
-from modules.transformer import TransformerEncoder
+from modules.cmt import TransformerEncoder
 
 # data input
 # ConType is the acoustic environment of the selected data

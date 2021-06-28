@@ -1,10 +1,9 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from modules.multihead_attention import MultiheadAttention
+from modules.cma import MultiheadAttention
 import math
 
-import parameters
 import random
 import numpy as np
 
@@ -178,7 +177,7 @@ def buffered_future_mask(tensor, tensor2=None):
         dim2 = tensor2.size(0)
     future_mask = torch.triu(fill_with_neg_inf(torch.ones(dim1, dim2)), 1+abs(dim2-dim1))
     if tensor.is_cuda:
-        future_mask = future_mask.to(parameters.device)
+        future_mask = future_mask.to(torch.device('cuda:0'))
     return future_mask[:dim1, :dim2]
 
 

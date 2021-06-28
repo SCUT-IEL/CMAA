@@ -4,9 +4,9 @@ This repository contains the python scripts developed as a part of the work pres
 
 ## Getting Started
 
-These files are extracted from the project stream and contain the complete model and some training parameters. Users need to write training and test code, and use private or public data sets in order to run the project.
+These files are extracted from the project stream, wchich contain the complete model and some training parameters.  In order to run the project, users need to write training and testing code, and use private or public datasets.
 
-The public [DTU dataset](https://doi.org/10.5281/zenodo.1199011) is used in the paper. The data set itself comes with matlab processing program, please adjust it according to your own needs.
+The public [DTU dataset](https://doi.org/10.5281/zenodo.1199011) is used in the paper. The dataset itself comes with matlab processing program, please adjust it according to your own needs.
 
 ## Paper
 
@@ -30,7 +30,7 @@ Shien-Ming Wu School of Intelligent Engineering, South China University of Techn
 
 ## Acknowledgments
 
-* Some portion of the code were adapted from [yaohungt](https://github.com/yaohungt) repo.
+* Some portion of the code were adapted from [yaohungt](https://github.com/yaohungt/Multimodal-Transformer) repo.
 
 ## References
 
