@@ -1,39 +1,35 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from modules.position_embedding import SinusoidalPositionalEmbedding
 from modules.multihead_attention import MultiheadAttention
 import math
 
-import model
+import parameters
 import random
 import numpy as np
 
+# Code adapted from the yaohungt repo.
+
 
 class TransformerEncoder(nn.Module):
-    """
-    Transformer encoder consisting of *args.encoder_layers* layers. Each layer
-    is a :class:`TransformerEncoderLayer`.
-    Args:
-        embed_tokens (torch.nn.Embedding): input embedding
-        num_heads (int): number of heads
-        layers (int): number of layers
-        attn_dropout (float): dropout applied on the attention weights
-        relu_dropout (float): dropout applied on the first layer of the residual block
-        res_dropout (float): dropout applied on the residual block
-        attn_mask (bool): whether to apply mask on the attention weights
-    """
-
     def __init__(self, embed_dim, num_heads, layers, attn_dropout=0.0, relu_dropout=0.0, res_dropout=0.0,
                  embed_dropout=0.0, attn_mask=False):
+        """
+        Transformer encoder consisting of N layers. Each layer is a TransformerEncoderLayer.
+        @param embed_dim: input embedding
+        @param num_heads: number of heads
+        @param layers: number of layers
+        @param attn_dropout: dropout applied on the attention weights
+        @param relu_dropout: dropout applied on the first layer of the residual block
+        @param res_dropout: dropout applied on the residual block
+        @param embed_dropout: dropout applied on the residual block
+        @param attn_mask: whether to apply mask on the attention weights
+        """
         super().__init__()
-        self.dropout = embed_dropout      # Embedding dropout
+        self.dropout = embed_dropout
         self.attn_dropout = attn_dropout
         self.embed_dim = embed_dim
         self.embed_scale = math.sqrt(embed_dim)
-        # self.embed_positions = SinusoidalPositionalEmbedding(embed_dim)
-        self.embed_positions = None
-
         self.attn_mask = attn_mask
 
         self.layers = nn.ModuleList([])
@@ -51,32 +47,22 @@ class TransformerEncoder(nn.Module):
         if self.normalize:
             self.layer_norm = LayerNorm(embed_dim)
 
-    def forward(self, x_in, x_in_k = None, x_in_v = None, return_ = False):
+    def forward(self, x_in, x_in_k=None, x_in_v=None, return_=False):
         """
-        Args:
-            x_in (FloatTensor): embedded input of shape `(src_len, batch, embed_dim)`
-            x_in_k (FloatTensor): embedded input of shape `(src_len, batch, embed_dim)`
-            x_in_v (FloatTensor): embedded input of shape `(src_len, batch, embed_dim)`
-        Returns:
-            dict:
-                - **encoder_out** (Tensor): the last encoder layer's output of
-                  shape `(src_len, batch, embed_dim)`
-                - **encoder_padding_mask** (ByteTensor): the positions of
-                  padding elements of shape `(batch, src_len)`
+        @param x_in: embedded input of shape (src_len, batch, embed_dim)
+        @param x_in_k: embedded input of shape (src_len, batch, embed_dim)
+        @param x_in_v: embedded input of shape (src_len, batch, embed_dim)
+        @param return_: whether to return the weight list
+        @return: the last encoder layer's output of shape (src_len, batch, embed_dim).
+            if return_=True, return tuple (output, weights)
         """
-        # embed tokens and positions
+        # embed tokens
         x = self.embed_scale * x_in
-        if self.embed_positions is not None:
-            x = x+ self.embed_positions(x_in.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
         x = F.dropout(x, p=self.dropout, training=self.training)
 
         if x_in_k is not None and x_in_v is not None:
-            # embed tokens and positions    
             x_k = self.embed_scale * x_in_k
             x_v = self.embed_scale * x_in_v
-            if self.embed_positions is not None:
-                x_k = x_k+ self.embed_positions(x_in_k.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
-                x_v = x_v+ self.embed_positions(x_in_v.transpose(0, 1)[:, :, 0]).transpose(0, 1)   # Add positional embedding
             x_k = F.dropout(x_k, p=self.dropout, training=self.training)
             x_v = F.dropout(x_v, p=self.dropout, training=self.training)
         
@@ -102,26 +88,21 @@ class TransformerEncoder(nn.Module):
 
     def max_positions(self):
         """Maximum input length supported by the encoder."""
-        if self.embed_positions is None:
-            return self.max_source_positions
-        return min(self.max_source_positions, self.embed_positions.max_positions())
+        return self.max_source_positions
 
 
 class TransformerEncoderLayer(nn.Module):
-    """Encoder layer block.
-    In the original paper each operation (multi-head attention or FFN) is
-    postprocessed with: `dropout -> add residual -> layernorm`. In the
-    tensor2tensor ecode they suggest that learning is more robust when
-    preprocessing each layer with layernorm and postprocessing with:
-    `dropout -> add residual`. We default to the approach in the paper, but the
-    tensor2tensor approach can be enabled by setting
-    *args.encoder_normalize_before* to ``True``.
-    Args:
-        embed_dim: Embedding dimension
-    """
-
     def __init__(self, embed_dim, num_heads=4, attn_dropout=0.1, relu_dropout=0.1, res_dropout=0.1,
                  attn_mask=False):
+        """
+        Encoder layer block
+        @param embed_dim: input embedding
+        @param num_heads: number of heads
+        @param attn_dropout: dropout applied on the attention weights
+        @param relu_dropout: dropout applied on the first layer of the residual block
+        @param res_dropout: dropout applied on the residual block
+        @param attn_mask: whether to apply mask on the attention weights
+        """
         super().__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -143,18 +124,17 @@ class TransformerEncoderLayer(nn.Module):
 
     def forward(self, x, x_k=None, x_v=None, return_=False):
         """
-        Args:
-            x (Tensor): input to the layer of shape `(seq_len, batch, embed_dim)`
-            encoder_padding_mask (ByteTensor): binary ByteTensor of shape
-                `(batch, src_len)` where padding elements are indicated by ``1``.
-            x_k (Tensor): same as x
-            x_v (Tensor): same as x
-        Returns:
-            encoded output of shape `(batch, src_len, embed_dim)`
+        @param x: (seq_len, batch, embed_dim)
+        @param x_k: (seq_len, batch, embed_dim)
+        @param x_v: (seq_len, batch, embed_dim)
+        @param return_: whether to return the weight list
+        @return: encoded output of shape (batch, src_len, embed_dim).
+            if return_=True, return tuple (output, weight)
         """
         residual = x
         x = self.maybe_layer_norm(0, x, before=True)
         mask = buffered_future_mask(x, x_k) if self.attn_mask else None
+        # Cross-modal attention
         if x_k is None and x_v is None:
             x, _ = self.self_attn(query=x, key=x, value=x, attn_mask=mask)
         else:
@@ -165,8 +145,7 @@ class TransformerEncoderLayer(nn.Module):
         x = residual + x
         x = self.maybe_layer_norm(0, x, after=True)
 
-        # 中间        
-
+        # Position-wise feed forward
         residual = x
         x = self.maybe_layer_norm(1, x, before=True)
         x = F.relu(self.fc1(x))
@@ -199,7 +178,7 @@ def buffered_future_mask(tensor, tensor2=None):
         dim2 = tensor2.size(0)
     future_mask = torch.triu(fill_with_neg_inf(torch.ones(dim1, dim2)), 1+abs(dim2-dim1))
     if tensor.is_cuda:
-        future_mask = future_mask.to(model.device)
+        future_mask = future_mask.to(parameters.device)
     return future_mask[:dim1, :dim2]
 
 
@@ -214,9 +193,3 @@ def Linear(in_features, out_features, bias=True):
 def LayerNorm(embedding_dim):
     m = nn.LayerNorm(embedding_dim)
     return m
-
-
-if __name__ == '__main__':
-    encoder = TransformerEncoder(300, 4, 2)
-    x = torch.tensor(torch.rand(20, 2, 300))
-    print(encoder(x).shape)

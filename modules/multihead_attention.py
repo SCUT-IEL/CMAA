@@ -4,15 +4,21 @@ from torch.nn import Parameter
 import torch.nn.functional as F
 import sys
 
-# Code adapted from the fairseq repo.
+# Code used the yaohungt repo.
+
 
 class MultiheadAttention(nn.Module):
-    """Multi-headed attention.
-    See "Attention Is All You Need" for more details.
-    """
-
     def __init__(self, embed_dim, num_heads, attn_dropout=0.,
                  bias=True, add_bias_kv=False, add_zero_attn=False):
+        """
+        Multi-headed attention. This module can use the MULTIHEADATTENTION module built in Pytorch1.9.
+        @param embed_dim: input embedding
+        @param num_heads: number of heads
+        @param attn_dropout: dropout applied on the attention weights
+        @param bias: whether to add bias to q
+        @param add_bias_kv: whether to add bias to kv
+        @param add_zero_attn: add a new batch of zeros to the key and value sequences at dim=1.
+        """
         super().__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -49,12 +55,12 @@ class MultiheadAttention(nn.Module):
             nn.init.xavier_normal_(self.bias_v)
 
     def forward(self, query, key, value, attn_mask=None):
-        """Input shape: Time x Batch x Channel
-        Self-attention can be implemented by passing in the same arguments for
-        query, key and value. Timesteps can be masked by supplying a T x T mask in the
-        `attn_mask` argument. Padding elements can be excluded from
-        the key by passing a binary ByteTensor (`key_padding_mask`) with shape:
-        batch x src_len, where padding elements are indicated by 1s.
+        """
+        @param query: (Time, Batch, Channel)
+        @param key: (Time, Batch, Channel)
+        @param value: (Time, Batch, Channel)
+        @param attn_mask: mask that prevents attention to certain positions.
+        @return: a tuple (output, weight), output shape (Time, Batch, Channel)
         """
         qkv_same = query.data_ptr() == key.data_ptr() == value.data_ptr()
         kv_same = key.data_ptr() == value.data_ptr()
@@ -63,8 +69,6 @@ class MultiheadAttention(nn.Module):
         assert embed_dim == self.embed_dim
         assert list(query.size()) == [tgt_len, bsz, embed_dim]
         assert key.size() == value.size()
-
-        aved_state = None
 
         if qkv_same:
             # self-attention

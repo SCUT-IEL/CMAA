@@ -54,6 +54,9 @@ conv_eeg_audio_number = 4
 
 class CNN(nn.Module):
     def __init__(self):
+        """
+        The CMAA model.
+        """
         super(CNN, self).__init__()
 
         self.channel = [16, 16, 16, 16]
@@ -84,7 +87,12 @@ class CNN(nn.Module):
         ) for i in range(conv_eeg_audio_number)])
 
     def dot(self, a, b):
-        # Cosine similarity
+        """
+        Cosine similarity
+        @param a: (channel, window_length). Change the number of channels in the front (to 16)
+        @param b: (channel, window_length). Change the number of channels in the front (to 16)
+        @return: (140)
+        """
         temp = torch.tensordot(a, b, dims=[[0], [0]])
         temp = torch.diag(temp)
         norm_a = torch.norm(a, p=2, dim=0)
@@ -93,9 +101,12 @@ class CNN(nn.Module):
         return temp
 
     def forward(self, x):
-        # x shape: 1 x 1 x channel(18) x window_length
-        # The batch size defaults to 1
-        # 18 channels include 2 wav channels and 16 eeg channels via csp
+        """
+        @param x: shape (1, 1, channel(18), window_length)
+            The batch size defaults to 1
+            18 channels include 2 wav channels and 16 eeg channels via csp
+        @return: output shape (1, 2)
+        """
         wavA = x[0, 0, 0:1, :]
         wavA = torch.t(wavA).unsqueeze(0)
         eeg = x[0, 0, 1:-1, :]
@@ -112,7 +123,7 @@ class CNN(nn.Module):
         wavB = self.proj_audio2(wavB)
 
         # 4CMA
-        # multihead_attention Input shape: Time x Batch x Channel
+        # multihead_attention Input shape: (Time, Batch, Channel)
         # wav and eeg shape: (Batch, Channel, Time)
         data = [wavA, eeg, eeg, wavB]
         kv = [eeg, wavA, wavB, eeg]
